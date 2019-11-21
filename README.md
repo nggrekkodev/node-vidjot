@@ -1,7 +1,9 @@
 - mongoose
 - body-parser
 
-* method-override
+- method-override
 
 - express-session
 - connect-flash
+
+- bcryptjs

@@ -1,12 +1,19 @@
 const express = require('express');
+const path = require('path');
 const exphbs = require('express-handlebars');
 const mongoose = require('mongoose');
 const bodyParser = require('body-parser');
 const methodOverride = require('method-override');
 const flash = require('connect-flash');
 const session = require('express-session');
+const passport = require('passport');
 
 const Idea = require('./models/Idea');
+const ideas = require('./routes/ideas');
+const users = require('./routes/users');
+
+// Passport config
+const passportConfig = require('./config/passport')(passport);
 
 const app = express();
 
@@ -26,6 +33,8 @@ mongoose
 /**
  * MIDDLEWARES
  */
+// Static folder : sets the public folder to be the express static folder
+app.use(express.static(path.join(__dirname, 'public')));
 
 // Handlebars
 app.engine('handlebars', exphbs({ defaultLayout: 'main' }));
@@ -48,6 +57,10 @@ app.use(
   })
 );
 
+// Passport middleware
+app.use(passport.initialize());
+app.use(passport.session());
+
 // Flash
 app.use(flash());
 
@@ -56,92 +69,25 @@ app.use((req, res, next) => {
   res.locals.success_msg = req.flash('success_msg');
   res.locals.error_msg = req.flash('error_msg');
   res.locals.error = req.flash('error');
-
+  res.locals.user = req.user || null;
   next();
 });
 
 /**
  * ROUTES
  */
+
 app.get('/', (req, res) => {
   res.render('index');
-});
-
-app.get('/ideas', (req, res) => {
-  Idea.find({})
-    .sort({ date: 'desc' })
-    .then(ideas => {
-      res.render('ideas/index', {
-        ideas
-      });
-    });
-});
-
-app.get('/ideas/add', (req, res) => {
-  res.render('ideas/add');
-});
-
-app.get('/ideas/edit/:id', (req, res) => {
-  Idea.findOne({ _id: req.params.id }).then(idea => {
-    console.log(idea);
-    res.render('ideas/edit', { idea });
-  });
-});
-
-app.post('/ideas', (req, res) => {
-  console.log(req.body);
-  let errors = [];
-
-  if (!req.body.title) {
-    errors.push({ text: 'Please add a title' });
-  }
-  if (!req.body.details) {
-    errors.push({ text: 'Please add some details' });
-  }
-
-  console.log(errors);
-  if (errors.length > 0) {
-    res.render('ideas/add', {
-      errors: errors,
-      title: req.body.title,
-      details: req.body.details
-    });
-  } else {
-    const newUser = {
-      title: req.body.title,
-      details: req.body.details
-    };
-    new Idea(newUser).save().then(idea => {
-      req.flash('success_msg', 'Idea added');
-      res.redirect('/ideas');
-    });
-  }
-});
-
-app.put('/ideas/:id', (req, res) => {
-  Idea.findOne({ _id: req.params.id })
-    .then(idea => {
-      idea.title = req.body.title;
-      idea.details = req.body.details;
-      return idea.save();
-    })
-    .then(idea => {
-      req.flash('success_msg', 'Idea updated');
-      res.redirect('/ideas');
-    });
-});
-
-app.delete('/ideas/:id', (req, res) => {
-  Idea.deleteOne({ _id: req.params.id }).then(() => {
-    req.flash('success_msg', 'Idea removed');
-    res.redirect('/ideas');
-  });
 });
 
 app.get('/about', (req, res) => {
   res.render('about');
 });
 
-const port = 5000;
+app.use('/ideas', ideas);
+app.use('/users', users);
+
+const port = process.env.port || 5000;
 
 app.listen(port, () => console.log(`App started on port ${port}`));
